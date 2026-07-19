@@ -124,7 +124,7 @@ saveUserData(interaction.guildId, userId, userWallet);
  
                 // Geminiにこれまでの履歴（contents: history）を全部渡して返事を考えてもらう
                 const response = await ai.models.generateContent({
-                    model: 'gemini-1.5-flash', // ※最新モデルの指定が確実です
+                    model: '1.5-flash', // ※最新モデルの指定が確実です
                     contents: history,         // 💡 ここを userPrompt から history に変更！
                     config: {
                         systemInstruction: "あなたは２ちゃんねる（５ちゃんねる）のなんでも実況J（なんJ）板にいる風な人として回答してください。改行や3点リーダー（…）を多用し、親しみやすい煽り口調を意識してください。"
