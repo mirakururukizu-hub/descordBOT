@@ -144,58 +144,71 @@ saveUserData(interaction.guildId, userId, userWallet);
             }
         }
  
-    // --- 📅 /daily ---
-    if (interaction.commandName === 'daily') {
-        const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000;
-        if (now - userWallet.lastDaily < oneDay) {
-            const remaining = oneDay - (now - userWallet.lastDaily);
-            const hours = Math.floor(remaining / (60 * 60 * 1000));
-            return interaction.reply(`❌ デイリーボーナスはすでに受け取っています。あと **${hours}時間** 待ってください。`);
+        // // --- 🎁 /daily ---
+        if (interaction.commandName === 'daily') {
+            const now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000;
+            const userWallet = getUserData(interaction.guildId, userId);
+ 
+            if (now - userWallet.lastDaily < oneDay) {
+                const remaining = oneDay - (now - userWallet.lastDaily);
+                const hours = Math.floor(remaining / (60 * 60 * 1000));
+                return interaction.reply(`❌ デイリーボーナスはすでに受け取っています。あと **${hours}時間** 待ってください。`);
+            }
+ 
+            userWallet.coins += 100;
+            userWallet.lastDaily = now;
+            saveUserData(interaction.guildId, userId, userWallet);
+            
+            await interaction.reply(`🎁 **デイリーボーナス！** 100コインを受け取りました。\n現在の残高: **${userWallet.coins}** コイン`);
         }
-        globalData[userId].coins += 100;
-        globalData[userId].lastDaily = now;
-        saveData(globalData);
-        await interaction.reply(`🎁 **デイリーボーナス！** 100コインを受け取りました。\n現在の残高: **${globalData[userId].coins}** コイン`);
-    }
  
-    // --- 🪙 /coin ---
-    if (interaction.commandName === 'coin') {
-        await interaction.reply(`💰 ${interaction.user.username}さんの現在の残高は **${userWallet.coins}** コインです。`);
-    }
- 
-    // --- 🎰 /slot ---
-    if (interaction.commandName === 'slot') {
-        const amount = interaction.options.getInteger('amount') || 10;
-        if (userWallet.coins < amount) return interaction.reply(`❌ コインが足りません。（所持金: **${userWallet.coins}** コイン）`);
-        if (amount <= 0) return interaction.reply('❌ 1コイン以上を賭けてください。');
- 
-        globalData[userId].coins -= amount;
- 
-        const emojis = ['🍒', '🍏', '💎', '🌟', '🎰'];
-        const s1 = emojis[Math.floor(Math.random() * emojis.length)];
-        const s2 = emojis[Math.floor(Math.random() * emojis.length)];
-        const s3 = emojis[Math.floor(Math.random() * emojis.length)];
- 
-        let msg = `🎰 **SLOT** | [ ${s1} | ${s2} | ${s3} ]\n`;
-        if (s1 === s2 && s2 === s3) {
-            const winAmount = Math.floor(amount * 2.0);
-            globalData[userId].coins += winAmount;
-            msg += `🎉 **大当り！！200%（${winAmount}コイン）の払い戻しです！**`;
-        } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-            const winAmount = Math.floor(amount * 1.5);
-            globalData[userId].coins += winAmount;
-            msg += `✨ **小当り！150%（${winAmount}コイン）の払い戻しです！**`;
-        } else {
-            const backAmount = Math.floor(amount * 0.5);
-            globalData[userId].coins += backAmount;
-            msg += `😢 ハズレです…50%（${backAmount}コイン）が戻りました。`;
+        // // --- 🪙 /coin ---
+        if (interaction.commandName === 'coin') {
+            const userWallet = getUserData(interaction.guildId, userId);
+            await interaction.reply(`🪙 ${interaction.user.username}さんの現在の残高は **${userWallet.coins}** コインです。`);
         }
-        saveData(globalData);
-        await interaction.reply(`${msg}\n現在の残高: **${globalData[userId].coins}** コイン`);
-    }
  
-    // --- 🎲 /dice ---
+        // // --- 🎰 /slot ---
+        if (interaction.commandName === 'slot') {
+            const amount = interaction.options.getInteger('amount') || 10;
+            const userWallet = getUserData(interaction.guildId, userId);
+ 
+            if (userWallet.coins < amount) {
+                return interaction.reply(`❌ コインが足りません。（所持金: **${userWallet.coins}** コイン）`);
+            }
+            if (amount <= 0) {
+                return interaction.reply('❌ 1コイン以上を賭けてください。');
+            }
+ 
+            // コインを賭ける
+            userWallet.coins -= amount;
+ 
+            const emojis = ['🍒', '🍏', '🍋', '🍇', '⭐', '💎'];
+            const s1 = emojis[Math.floor(Math.random() * emojis.length)];
+            const s2 = emojis[Math.floor(Math.random() * emojis.length)];
+            const s3 = emojis[Math.floor(Math.random() * emojis.length)];
+ 
+            let msg = `🎰 **SLOT** 🎰\n| ${s1} | ${s2} | ${s3} |\n`;
+ 
+            if (s1 === s2 && s2 === s3) {
+                const winAmount = Math.floor(amount * 2.0);
+                userWallet.coins += winAmount;
+                msg += `✨ **大当たり！200%（${winAmount}コイン）** の払い戻しです！ ✨`;
+            } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+                const winAmount = Math.floor(amount * 1.5);
+                userWallet.coins += winAmount;
+                msg += `✨ **小当たり！150%（${winAmount}コイン）** の払い戻しです！ ✨`;
+            } else {
+                const backAmount = Math.floor(amount * 0.5);
+                userWallet.coins += backAmount;
+                msg += `😭 **ハズレです…** 50%（${backAmount}コイン）が戻りました。`;
+            }
+ 
+            // 新しい関数で保存
+            saveUserData(interaction.guildId, userId, userWallet);
+            await interaction.reply(`${msg}\n現在の残高: **${userWallet.coins}** コイン`);
+        }    // --- 🎲 /dice ---
     if (interaction.commandName === 'dice') {
         const guess = interaction.options.getInteger('guess');
         const amount = interaction.options.getInteger('amount') || 10;
