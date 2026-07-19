@@ -1,9 +1,8 @@
-// --- 🌐 UptimeRobot用のWEBサーバー機能 (ここを1行目に追加) ---
+// --- UptimeRobot用のWEBサーバー機能 ---
 const http = require('http');
 http.createServer((req, res) => {
-res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-res.end('Botは正常に稼働中やで！'); // 💡 カッコ「 ) 」とセミコロン「 ; 」を足す
-});
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Botは正常に稼働中やで！');
 }).listen(process.env.PORT || 3000);
  
 // --------------------------------------------------------
