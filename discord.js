@@ -9,6 +9,8 @@ http.createServer((req, res) => {
 const { Client, GatewayIntentBits, SlashCommandBuilder } = require('discord.js');
 const { GoogleGenAI } = require('@google/genai');
 const fs = require('fs');
+// チャンネルごとの会話履歴を保存する箱（コードの上のほうに追加）
+const chatHistories = new Map();
  
 // ⚠️ 【ここをご自身のトークンとキーに書き換えて、" " で囲んでください】
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN; 
@@ -34,14 +36,32 @@ function saveData(data) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
  
-function getUserData(userId) {
+/ サーバーIDとユーザーIDをセットでデータを取得する関数
+function getUserData(guildId, userId) {
     const data = loadData();
-    if (!data[userId]) {
-        data[userId] = { coins: 100, lastDaily: 0 };
+    
+    // まだそのサーバーのデータ枠がない場合は作る
+    if (!data[guildId]) {
+        data[guildId] = {};
+    }
+    
+    // そのサーバー内に該当ユーザーのデータがない場合は初期化する
+    if (!data[guildId][userId]) {
+        data[guildId][userId] = { coins: 100, lastDaily: 0 };
         saveData(data);
     }
-    return data[userId];
+    
+    return data[guildId][userId];
 }
+ 
+// サーバーIDとユーザーIDを指定してデータを上書き保存する関数
+function saveUserData(guildId, userId, userWallet) {
+    const data = loadData();
+    if (!data[guildId]) data[guildId] = {};
+    
+    data[guildId][userId] = userWallet;
+    saveData(data);
+}}
  
 client.once('ready', async () => {
     const commands = [
@@ -67,28 +87,62 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
  
     const userId = interaction.user.id;
-    const userWallet = getUserData(userId);
+ // サーバーIDも一緒に渡して、そのサーバー専用のデータを取る
+const userWallet = getUserData(interaction.guildId, userId);
+ 
+// 〜コインの計算処理（ここは今までのままでOK）〜
+ 
+// 保存するときは新しい保存関数を使う
+saveUserData(interaction.guildId, userId, userWallet);
     const globalData = loadData();
  
-    const hasAdminRole = interaction.member.roles.cache.some(role => role.name === '管理者権限');
+    const hasAdminRole = interaction.member.roles.cache.some(role => role.name === 'カジノの管理者');
     const isOwner = interaction.guild.ownerId === userId;
  
-    // --- 🤖 /gpt (なんJ民AI機能) ---
-    if (interaction.commandName === 'gpt') {
-        await interaction.deferReply();
-        try {
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview', 
-                contents: interaction.options.getString('prompt'),
-                config: { 
-                    systemInstruction: "あなたは2ちゃんねる（5ちゃんねる）のなんでも実況J（なんJ）板に生息する「なんJ民」です。口調は「〜やで」「〜やろ」「〜で草」「〇〇ニキ」などのなんJ特有のネットスラングを使い、少し生意気でユーモアのある2ちゃんねらーとして回答してください。改行や3点リーダー（…）を多用し、親しみやすい煽り口調を意識してください。" 
+          // // --- 🤖 /gpt (なんJ民AI機能) ---
+        if (interaction.commandName === 'gpt') {
+            await interaction.deferReply();
+            try {
+                const channelId = interaction.channelId; // 💡 チャンネルIDを取得
+                const userPrompt = interaction.options.getString('prompt');
+ 
+                // そのチャンネルの過去の記憶がなければ新しく空の配列を作る
+                if (!chatHistories.has(channelId)) {
+                    chatHistories.set(channelId, []);
                 }
-            });
-            await interaction.editReply(response.text.substring(0, 1990));
-        } catch (error) {
-            await interaction.editReply('❌ エラーが発生しました。');
+ 
+                // そのチャンネルの履歴を取り出す
+                let history = chatHistories.get(channelId);
+ 
+                // 履歴に今回のユーザーの発言を追加
+                history.push({ role: 'user', parts: [{ text: userPrompt }] });
+ 
+                // 💡 記憶が長すぎるとエラーになるので、直近の10往復（20件）だけに制限
+                if (history.length > 20) {
+                    history = history.slice(-20);
+                }
+ 
+                // Geminiにこれまでの履歴（contents: history）を全部渡して返事を考えてもらう
+                const response = await ai.models.generateContent({
+                    model: 'gemini-1.5-flash', // ※最新モデルの指定が確実です
+                    contents: history,         // 💡 ここを userPrompt から history に変更！
+                    config: {
+                        systemInstruction: "あなたは２ちゃんねる（５ちゃんねる）のなんでも実況J（なんJ）板にいる風な人として回答してください。改行や3点リーダー（…）を多用し、親しみやすい煽り口調を意識してください。"
+                    }
+                });
+ 
+                const aiResponse = response.text.substring(0, 1990);
+ 
+                // AIの返事もそのチャンネルの履歴に追加して保存する
+                history.push({ role: 'model', parts: [{ text: aiResponse }] });
+                chatHistories.set(channelId, history);
+ 
+                await interaction.editReply(aiResponse);
+            } catch (error) {
+                console.error(error);
+                await interaction.editReply('❌ エラーが発生しました。');
+            }
         }
-    }
  
     // --- 📅 /daily ---
     if (interaction.commandName === 'daily') {
