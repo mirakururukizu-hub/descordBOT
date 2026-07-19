@@ -36,7 +36,7 @@ function saveData(data) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
  
-/ サーバーIDとユーザーIDをセットでデータを取得する関数
+// サーバーIDとユーザーIDをセットでデータを取得する関数
 function getUserData(guildId, userId) {
     const data = loadData();
     
