@@ -11,8 +11,8 @@ const { GoogleGenAI } = require('@google/genai');
 const fs = require('fs');
  
 // ⚠️ 【ここをご自身のトークンとキーに書き換えて、" " で囲んでください】
-const DISCORD_BOT_TOKEN = ""; 
-const GEMINI_API_KEY = "";     
+const DISCORD_BOT_TOKEN = "DISCORD_BOT_TOKEN"; 
+const GEMINI_API_KEY = "GEMINI_API_KEY";     
  
 const client = new Client({
     intents: [
@@ -261,4 +261,4 @@ client.on('interactionCreate', async interaction => {
 });
  
 // ログインして起動！
-client.login("");
+client.login("DISCORD_BOT_TOKEN");
