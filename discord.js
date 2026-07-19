@@ -61,7 +61,7 @@ function saveUserData(guildId, userId, userWallet) {
     
     data[guildId][userId] = userWallet;
     saveData(data);
-}}
+}
  
 client.once('ready', async () => {
     const commands = [
